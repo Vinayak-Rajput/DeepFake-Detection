@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Deepfake Detector</title>
+    <style>
+        /* --- Styles --- */
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f7f6; color: #333; }
+        .container { max-width: 800px; margin: auto; background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        h1, h2, h3 { color: #2c3e50; }
+        #result { margin-top: 20px; padding: 15px; border: 1px solid #ccc; background: #f9f9f9; border-radius: 5px; }
+        #error { margin-top: 20px; padding: 15px; border: 1px solid #d9534f; background: #f2dede; color: #a94442; border-radius: 5px; }
+        code { background: #e9ecef; padding: 3px 6px; border-radius: 3px; font-family: monospace; word-break: break-all; }
+        strong.real { color: #28a745; }
+        strong.fake { color: #dc3545; }
+        #loading { display: none; margin-top: 20px; padding: 15px; border: 1px solid #ddd; background: #eef; color: #33a; font-weight: bold; border-radius: 5px; text-align: center; }
+        .preview-media { max-width: 100%; height: auto; max-height: 300px; margin-top: 10px; border: 1px solid #ccc; border-radius: 5px; display: block; margin-left: auto; margin-right: auto;}
+        /* Style for blockchain info message */
+        .blockchain-info { font-style: italic; color: #0c5460; margin: 10px 0 15px 0; background-color: #d1ecf1; border: 1px solid #bee5eb; padding: 10px; border-radius: 5px; }
+        form { margin-bottom: 20px; }
+        input[type="file"] { border: 1px solid #ccc; padding: 5px; border-radius: 4px; margin-right: 10px;}
+        button { padding: 10px 15px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 1em; }
+        button:hover { background-color: #0056b3; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Deepfake Media Detector</h1>
+        <p>Upload an image (jpg, png) or video (mp4, avi, mov) to check its authenticity.</p>
+
+        <form action="/upload" method="post" enctype="multipart/form-data" id="upload-form">
+            <input type="file" name="media" id="media-input" accept="image/*,video/mp4,video/avi,video/quicktime" required>
+            <button type="submit">Analyze and Log to Blockchain</button>
+        </form>
+
+        <!-- Loading Message Div -->
+        <div id="loading">Processing... Please wait, AI analysis may take time, especially for videos. ⏳</div>
+
+        <!-- Display Error if any -->
+        {% if error %}
+            <div id="error"> <strong>Error:</strong> {{ error }} </div>
+        {% endif %}
+
+        <!-- Display Result -->
+        {% if result and result.label != 'N/A' %}
+            <div id="result">
+                <!-- --- Display Blockchain Info --- -->
+                {% if result.existing_record %}
+                    {# If existing_record is present in the data passed from Flask #}
+                    <div class="blockchain-info">
+                        ℹ️ Result loaded from existing blockchain record.<br>
+                        {# Display human-readable time if available, otherwise fallback to timestamp #}
+                        Logged on: {{ result.existing_record.log_time_str if result.existing_record.log_time_str else ('Timestamp: ' + result.existing_record.timestamp|string) }}.
+                    </div>
+                 {% else %}
+                     {# Only show "Analysis Complete" if it was a new analysis #}
+                     <h2>Analysis Complete ✅</h2>
+                 {% endif %}
+                <!-- --- End Blockchain Info --- -->
+
+                <p><strong>File Type:</strong> {{ result.type }}</p>
+                <p><strong>Prediction:</strong> <strong class="{{ result.label|lower }}">{{ result.label }}</strong> </p>
+                <p><strong>Confidence (Score for "Real"):</strong> {{ "%.4f"|format(result.confidence) }}</p>
+                <p><strong>Media Hash (SHA-256):</strong> <code>{{ result.hash }}</code></p>
+                <p><strong>Blockchain TX / Status:</strong> <code>{{ result.tx_hash }}</code></p>
+
+                <!-- Media Preview Section -->
+                <h3>Uploaded Media Preview:</h3>
+                {% if result.uploaded_filename %} {# Check if filename exists #}
+                    {% if result.type == 'Image' %}
+                        <img src="{{ url_for('serve_upload', filename=result.uploaded_filename) }}" alt="Uploaded Image" class="preview-media">
+                    {% elif result.type == 'Video' %}
+                         <p><em>Video preview is currently disabled.</em></p>
+                        {# --- Keep video player commented out or remove if not working ---
+                        <video controls width="400" class="preview-media">
+                            <source src="{{ url_for('serve_upload', filename=result.uploaded_filename) }}" type="video/mp4">
+                            Your browser does not support the video tag.
+                        </video>
+                        #}
+                    {% endif %}
+                {% else %}
+                    <p><em>Preview not available.</em></p>
+                {% endif %}
+                <!-- End Media Preview -->
+
+            </div>
+        {% elif result and result.label == 'N/A' and not error %}
+             {# Handle case where prediction failed cleanly #}
+             <div id="error"> <strong>Error:</strong> Prediction could not be made. Check server logs. </div>
+        {% endif %}
+    </div>
+
+    <!-- JavaScript for Loading Message -->
+    <script>
+        const form = document.getElementById('upload-form');
+        const loadingDiv = document.getElementById('loading');
+        const fileInput = document.getElementById('media-input');
+
+        form.addEventListener('submit', function(event) {
+            // Check if a file is selected before showing loading
+            if (fileInput.files.length > 0) {
+                 // Hide previous results/errors if any exist
+                 const resultDiv = document.getElementById('result');
+                 const errorDiv = document.getElementById('error');
+                 if(resultDiv) resultDiv.style.display = 'none';
+                 if(errorDiv) errorDiv.style.display = 'none';
+                 // Show loading message
+                 loadingDiv.style.display = 'block';
+            }
+            // Optional: Prevent submission if no file selected
+            // else {
+            //     event.preventDefault();
+            //     alert("Please choose a file to upload.");
+            // }
+        });
+
+        // Hide loading when page reloads/shows (e.g., after form submission response or using back button)
+        window.addEventListener('pageshow', function() {
+             if (loadingDiv) {
+                loadingDiv.style.display = 'none';
+             }
+             // Ensure result/error divs are visible if they exist after page load
+             const resultDiv = document.getElementById('result');
+             const errorDiv = document.getElementById('error');
+             if(resultDiv) resultDiv.style.display = 'block';
+             if(errorDiv) errorDiv.style.display = 'block';
+        });
+    </script>
+
+</body>
+</html>

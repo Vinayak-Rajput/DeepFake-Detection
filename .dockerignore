@@ -1,0 +1,28 @@
+# Ignore virtual environment
+.venv/
+
+# Ignore Git files
+.git/
+.gitignore
+
+# Ignore IDE/OS files
+.vscode/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.DS_Store
+Thumbs.db
+
+# Ignore datasets (usually mounted as volumes if needed)
+Celeb-DF/
+processed_frames/
+
+# Ignore logs or temporary files if any
+*.log
+*.png # Don't copy generated plots
+# Optionally ignore training scripts if the container is only for running app.py
+# cnn_*.py
+# preprocess.py
+# deploy_contract.py # Not needed inside container
+# verify_videos.py

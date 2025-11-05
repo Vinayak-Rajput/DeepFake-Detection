@@ -1,4 +1,3 @@
-# Save this as deploy_contract.py
 import json
 import os
 from web3 import Web3
@@ -16,20 +15,29 @@ ABI_FILE_PATH = "blockchain/DetectionLoggerABI.json" # Where to save the ABI
 try:
     with open(CONFIG_FILE_PATH, 'r') as f:
         config = json.load(f)
-    deployer_address = config["wallet_address"]
-    pk = config["private_key"]
-    private_key = pk if pk.startswith('0x') else '0x' + pk
+    # Use existing keys, or prompt if missing
+    deployer_address = config.get("wallet_address")
+    private_key_raw = config.get("private_key")
+    
+    if not deployer_address or not private_key_raw:
+        print(f"ERROR: 'wallet_address' or 'private_key' missing in {CONFIG_FILE_PATH}.")
+        print("Please ensure your Ganache account details are in the config file.")
+        exit()
+        
+    private_key = private_key_raw if private_key_raw.startswith('0x') else '0x' + private_key_raw
     print(f"Using deployer account: {deployer_address}")
+    
 except FileNotFoundError:
     print(f"ERROR: Config file '{CONFIG_FILE_PATH}' not found.")
-    print("Please create it with your Ganache wallet_address and private_key.")
+    print("Please create it with your Ganache 'wallet_address' and 'private_key'.")
     exit()
-except KeyError as e:
-    print(f"ERROR: Missing key in '{CONFIG_FILE_PATH}': {e}")
+except Exception as e:
+    print(f"Error loading config: {e}")
     exit()
 
+
 # --- 1. Compile Solidity Contract ---
-print("Compiling Solidity contract...")
+print(f"Compiling Solidity contract from {SOLIDITY_FILE_PATH}...")
 try:
     # Ensure Solidity version is installed (e.g., 0.8.0 used in the contract)
     solc_version = "0.8.0" # Make sure this matches your pragma line
@@ -59,7 +67,7 @@ try:
     abi = contract_interface["abi"]
     bytecode = contract_interface["evm"]["bytecode"]["object"]
 
-    # Save ABI to file
+    # Save ABI to file (overwriting the old one)
     with open(ABI_FILE_PATH, 'w') as f:
         json.dump(abi, f, indent=2)
     print(f"Contract ABI saved to {ABI_FILE_PATH}")
@@ -100,7 +108,6 @@ try:
             "from": checksum_deployer,
             "nonce": nonce,
             "gasPrice": w3.to_wei("20", "gwei"),
-            # 'gas': 3000000 # Let web3 estimate gas, or set manually
         }
     )
 
@@ -108,7 +115,6 @@ try:
     estimated_gas = w3.eth.estimate_gas(transaction)
     transaction['gas'] = estimated_gas + 50000 # Add a buffer
     print(f"Estimated Gas: {estimated_gas}")
-
 
     # Sign transaction
     signed_txn = w3.eth.account.sign_transaction(transaction, private_key=private_key)

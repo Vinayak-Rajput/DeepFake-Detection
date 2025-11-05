@@ -1,7 +1,3 @@
-You got it. Here is the full Markdown content for `README.md`. You can copy and paste this directly to update your file.
-
------
-
 # Deepfake Media Detector (Full Application)
 
 This is a full-stack web application for detecting deepfakes in images and videos. It features a secure user authentication system, an AI-powered detection engine (using CNNs and LSTMs), optional LIME (XAI) explainability, and immutable results-logging to an Ethereum blockchain (Ganache).

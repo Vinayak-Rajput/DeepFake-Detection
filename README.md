@@ -20,6 +20,43 @@ This is a full-stack web application for detecting deepfakes in images and video
   * **Immutable Ledger:** Uses a Solidity smart contract (`DetectionLogger.sol`) to store file hashes, predictions, confidence scores, and XAI filenames.
   * **Automated Deployment:** Includes a Python script (`deploy_contract.py`) to compile and deploy the smart contract.
   * **Containerized:** `Dockerfile` provided for building and running the entire application.
+## 📁 Architecture & Data Flow
+
+This diagram shows the complete user flow from uploading a file to receiving a result.
+
+```mermaid
+graph TD
+    A[User Uploads Media] --> B{app.py: /upload_media};
+    B --> C[1. Calculate SHA-256 Hash];
+    C --> D{2. Blockchain Enabled?};
+    
+    D -- Yes --> E[3. Query Blockchain (getDetectionByHash)];
+    E --> F{Record Found?};
+    
+    F -- Yes --> G[4a. Load Result from Blockchain];
+    G --> R[Show Result to User];
+    
+    F -- No --> H[4b. Run AI Prediction];
+    D -- No --> H;
+    
+    H --> I{File Type?};
+    I -- Image --> J[Predictor: CNN Model (Xception)];
+    I -- Video --> K[Predictor: CNN+LSTM Model];
+    
+    J --> L{XAI Enabled?};
+    K --> M[Format Result (No XAI)];
+    
+    L -- Yes --> N[Generate LIME Overlay];
+    L -- No --> M;
+    N --> M;
+    
+    M --> O{Blockchain Enabled?};
+    O -- Yes --> P[Log to Blockchain (logDetection)];
+    O -- No --> Q[Format Final Result];
+    
+    P --> Q;
+    Q --> R;
+...
 
 ## 💻 Technology Stack
 
@@ -28,6 +65,21 @@ This is a full-stack web application for detecting deepfakes in images and video
   * **Blockchain:** Solidity, Ganache, Web3.py, py-solc-x
   * **Frontend:** HTML5, Tailwind CSS, Alpine.js
   * **Deployment:** Docker, Gunicorn
+```markdown
+
+<p align="left">
+  <img src="https://img.shields.io/badge/Python-3.10%2B-blue?style=for-the-badge&logo=python&logoColor=white" alt="Python">
+  <img src="https://img.shields.io/badge/Flask-000000?style=for-the-badge&logo=flask&logoColor=white" alt="Flask">
+  <img src="https://img.shields.io/badge/TensorFlow-FF6F00?style=for-the-badge&logo=tensorflow&logoColor=white" alt="TensorFlow">
+  <img src="https://img.shields.io/badge/OpenCV-5C3EE8?style=for-the-badge&logo=opencv&logoColor=white" alt="OpenCV">
+  <img src="https://img.shields.io/badge/Solidity-363636?style=for-the-badge&logo=solidity&logoColor=white" alt="Solidity">
+  <img src="https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker">
+  <img src="https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white" alt="Tailwind CSS">
+</p>
+
+* **Backend:** Python 3.10+, Flask, Flask-SQLAlchemy, Flask-Login, Flask-Bcrypt
+* **AI / ML:** TensorFlow (Keras), OpenCV, scikit-learn, LIME, scikit-image
+...
 
 ## 📁 Project Structure
 

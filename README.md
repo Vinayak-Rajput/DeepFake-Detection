@@ -56,6 +56,7 @@ graph TD
     
     P --> Q;
     Q --> R;
+```
 
 ## 💻 Technology Stack
 

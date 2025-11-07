@@ -79,8 +79,7 @@ graph TD
 
 * **Backend:** Python 3.10+, Flask, Flask-SQLAlchemy, Flask-Login, Flask-Bcrypt
 * **AI / ML:** TensorFlow (Keras), OpenCV, scikit-learn, LIME, scikit-image
-...
-
+```
 ## 📁 Project Structure
 
 ```

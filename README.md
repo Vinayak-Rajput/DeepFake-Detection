@@ -26,37 +26,36 @@ This diagram shows the complete user flow from uploading a file to receiving a r
 
 ```mermaid
 graph TD
-    A[User Uploads Media] --> B{app.py: /upload_media};
-    B --> C[1. Calculate SHA-256 Hash];
-    C --> D{2. Blockchain Enabled?};
+    A[User Uploads Media] --> B{"app.py: /upload_media"};
+    B --> C["1. Calculate SHA-256 Hash"];
+    C --> D{"2. Blockchain Enabled?"};
     
-    D -- Yes --> E[3. Query Blockchain (getDetectionByHash)];
-    E --> F{Record Found?};
+    D -- Yes --> E["3. Query Blockchain(getDetectionByHash)"];
+    E --> F{"Record Found?"};
     
-    F -- Yes --> G[4a. Load Result from Blockchain];
-    G --> R[Show Result to User];
+    F -- Yes --> G["4a. Load Result from Blockchain"];
+    G --> R["Show Result to User"];
     
-    F -- No --> H[4b. Run AI Prediction];
+    F -- No --> H["4b. Run AI Prediction"];
     D -- No --> H;
     
-    H --> I{File Type?};
-    I -- Image --> J[Predictor: CNN Model (Xception)];
-    I -- Video --> K[Predictor: CNN+LSTM Model];
+    H --> I{"File Type?"};
+    I -- Image --> J["Predictor: CNN Model (Xception)"];
+    I -- Video --> K["Predictor: CNN+LSTM Model"];
     
-    J --> L{XAI Enabled?};
-    K --> M[Format Result (No XAI)];
+    J --> L{"XAI Enabled?"};
+    K --> M["Format Result (No XAI)"];
     
-    L -- Yes --> N[Generate LIME Overlay];
+    L -- Yes --> N["Generate LIME Overlay"];
     L -- No --> M;
     N --> M;
     
-    M --> O{Blockchain Enabled?};
-    O -- Yes --> P[Log to Blockchain (logDetection)];
-    O -- No --> Q[Format Final Result];
+    M --> O{"Blockchain Enabled?"};
+    O -- Yes --> P["Log to Blockchain (logDetection)"];
+    O -- No --> Q["Format Final Result"];
     
     P --> Q;
     Q --> R;
-...
 
 ## 💻 Technology Stack
 

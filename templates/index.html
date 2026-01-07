@@ -3,65 +3,68 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Deepfake Media Detector</title>
+    <title>Verity Lens: Deepfake Detector</title>
     <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Load Alpine.js for tab management -->
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    
+    <!-- === AOS (Animate On Scroll) CSS === -->
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+    
+    <!-- === Lucide Icons === -->
+    <script src="https://unpkg.com/lucide-dev@latest"></script>
+
     <style>
         /* Use Inter font */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
         body { font-family: 'Inter', sans-serif; }
-        /* Style for active tab */
-        .tab-active { 
-            border-bottom-color: #3b82f6; /* blue-500 */
-            color: #3b82f6; 
-            font-weight: 600; 
-        }
-        /* Hide sections by default (Alpine.js will manage this) */
         [x-cloak] { display: none !important; }
-        /* Result styles */
-        .result-label-real { color: #16a34a; /* green-600 */ }
-        .result-label-fake { color: #dc2626; /* red-600 */ }
-        code { 
-            background-color: #e5e7eb; /* gray-200 */
-            padding: 2px 5px; 
-            border-radius: 4px; 
-            font-family: monospace; 
-            word-break: break-all; 
-        }
-        /* Loading overlay */
+        
+        /* --- Styles for App --- */
+        .tab-active { border-bottom-color: #3b82f6; color: #3b82f6; font-weight: 600; }
+        .result-label-real { color: #16a34a; }
+        .result-label-fake { color: #dc2626; }
+        code { background-color: #e5e7eb; padding: 2px 5px; border-radius: 4px; font-family: monospace; word-break: break-all; }
+        
+        /* --- Styles for Loading Overlay --- */
         #loading-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background-color: rgba(255, 255, 255, 0.8);
-            backdrop-filter: blur(4px);
-            z-index: 9999; 
-            display: none; /* Hidden by default */
-            justify-content: center; 
-            align-items: center; 
-            flex-direction: column;
+            background-color: rgba(255, 255, 255, 0.8); backdrop-filter: blur(4px);
+            z-index: 9999; display: none;
+            justify-content: center; align-items: center; flex-direction: column;
         }
         .spinner {
-            border: 4px solid #f3f3f3; /* gray-100 */
-            border-top: 4px solid #3b82f6; /* blue-500 */
+            border: 4px solid #f3f3f3; border-top: 4px solid #3b82f6;
             border-radius: 50%; width: 40px; height: 40px;
-            animation: spin 1s linear infinite; 
-            margin-bottom: 10px;
+            animation: spin 1s linear infinite; margin-bottom: 10px;
         }
-        @keyframes spin { 
-            0% { transform: rotate(0deg); } 
-            100% { transform: rotate(360deg); } 
-        }
-        /* Style for webcam feed */
-        #webcam-feed {
-            display: none;
-            width: 100%;
-            max-width: 400px;
-            height: auto;
-            border-radius: 8px;
-            border: 1px solid #ccc;
-            margin: 10px auto;
-        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        /* --- Other App Styles --- */
+        #webcam-feed { display: none; width: 100%; max-width: 400px; height: auto; border-radius: 8px; border: 1px solid #ccc; margin: 10px auto; }
         #capture-btn { display: none; }
+        .preview-media { max-width: 100%; height: auto; max-height: 400px; margin-top: 10px; border: 1px solid #ccc; border-radius: 5px; display: block; margin-left: auto; margin-right: auto;}
+        .blockchain-info { font-style: italic; color: #0c5460; margin: 10px 0 15px 0; background-color: #d1ecf1; border: 1px solid #bee5eb; padding: 10px; border-radius: 5px; }
+
+        /* LIME Tooltip Styles */
+        #lime-tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            pointer-events: none; /* Let mouse events pass through */
+            display: none;
+            z-index: 1000;
+        }
+        .lime-container {
+            position: relative;
+            display: inline-block;
+            width: 100%;
+            text-align: center;
+        }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -73,31 +76,33 @@
         <p class="text-sm text-gray-600">AI analysis and blockchain logging may take time.</p>
     </div>
 
-    <!-- Main Content Container -->
-    <div class="container mx-auto max-w-4xl p-4 md:p-8 bg-white shadow-lg rounded-lg my-10" 
-         x-data="{ 
-            activeTab: '{{ initial_tab | default('upload') }}',
-            isCameraOpen: false,
-            webcamStream: null
-         }" 
-         x-cloak>
-
-        <h1 class="text-3xl font-bold text-center text-gray-800 mb-6">Deepfake Media Detector</h1>
-
-        <!-- User Info and Logout -->
-        {% if current_user.is_authenticated %}
-            <div class="text-right mb-4 text-sm text-gray-600">
-                Welcome, <strong class="font-medium">{{ current_user.username }}</strong>! | 
-                <a href="{{ url_for('logout') }}" class="text-blue-600 hover:underline">Logout</a>
+    <!-- === Hero Section (Navbar) === -->
+    <div class="w-full bg-white shadow-lg sticky top-0 z-50">
+        <nav class="container mx-auto max-w-6xl px-4 py-4 flex justify-between items-center">
+            <div class="text-3xl font-bold text-blue-600 flex items-center">
+                <i data-lucide="shield-check" class="inline-block mr-2"></i>
+                Verity Lens
             </div>
-        {% endif %}
+            <div>
+                {% if current_user.is_authenticated %}
+                    <span class="text-gray-700 mr-4">Welcome, <strong class="font-medium">{{ current_user.username }}</strong>!</span>
+                    <a href="{{ url_for('logout') }}" class="text-sm font-medium text-blue-600 hover:underline">
+                        <i data-lucide="log-out" class="inline-block w-4 h-4 -mt-1"></i> Logout
+                    </a>
+                {% else %}
+                    <span class="text-gray-600">Welcome, Guest. Please log in or register.</span>
+                {% endif %}
+            </div>
+        </nav>
+    </div>
 
-        <!-- Flash Messages (for login errors, etc.) -->
+    <!-- Flash Messages (Moved outside main container for global visibility) -->
+    <div class="container mx-auto max-w-4xl p-4 md:px-8 pt-6">
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 <div class="mb-4 space-y-2">
                 {% for category, message in messages %}
-                    <div class="p-3 rounded-md
+                    <div class="p-3 rounded-md shadow
                         {% if category == 'error' %} bg-red-100 border border-red-400 text-red-700
                         {% elif category == 'success' %} bg-green-100 border border-green-400 text-green-700
                         {% else %} bg-blue-100 border border-blue-400 text-blue-700 {% endif %}"
@@ -108,19 +113,21 @@
                 </div>
             {% endif %}
         {% endwith %}
+    </div>
 
-        <!-- === AUTHENTICATION SECTION (If Not Logged In) === -->
-        {% if not current_user.is_authenticated %}
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+    <!-- === AUTHENTICATION SECTION (If Not Logged In) === -->
+    {% if not current_user.is_authenticated %}
+        <div class="container mx-auto max-w-4xl p-4 md:px-8">
+            <div class="bg-white shadow-xl rounded-lg p-6 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-8">
                 <!-- Login Form -->
                 <div class="border p-6 rounded-lg bg-gray-50 shadow-inner">
                     <h2 class="text-2xl font-semibold mb-4 text-gray-700">Login</h2>
-                    <form action="{{ url_for('login') }}" method="post">
-                        <div class="mb-4">
+                    <form action="{{ url_for('login') }}" method="post" class="space-y-4">
+                        <div>
                             <label for="login-username" class="block text-sm font-medium text-gray-700">Username</label>
                             <input type="text" id="login-username" name="username" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
                         </div>
-                        <div class="mb-4">
+                        <div>
                             <label for="login-password" class="block text-sm font-medium text-gray-700">Password</label>
                             <input type="password" id="login-password" name="password" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
                         </div>
@@ -132,12 +139,12 @@
                 <!-- Register Form -->
                 <div class="border p-6 rounded-lg bg-gray-50 shadow-inner">
                     <h2 class="text-2xl font-semibold mb-4 text-gray-700">Register</h2>
-                    <form action="{{ url_for('register') }}" method="post">
-                         <div class="mb-4">
+                    <form action="{{ url_for('register') }}" method="post" class="space-y-4">
+                         <div>
                             <label for="reg-username" class="block text-sm font-medium text-gray-700">Username</label>
                             <input type="text" id="reg-username" name="username" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
                         </div>
-                        <div class="mb-4">
+                        <div>
                             <label for="reg-password" class="block text-sm font-medium text-gray-700">Password</label>
                             <input type="password" id="reg-password" name="password" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
                         </div>
@@ -147,33 +154,41 @@
                     </form>
                 </div>
             </div>
-            <hr class="my-6">
-            <p class="text-center text-gray-600">Please log in or register to use the detector.</p>
+        </div>
 
-        {% else %}
-        <!-- === MAIN APPLICATION (If Logged In) === -->
+    {% else %}
+    <!-- === MAIN APPLICATION (If Logged In) === -->
+    <div class="container mx-auto max-w-5xl p-4 md:p-8" 
+         x-data="{ 
+            activeTab: 'upload',
+            isCameraOpen: false,
+            webcamStream: null
+         }" 
+         x-cloak>
+        
+        <div class="bg-white shadow-xl rounded-lg p-6 md:p-8">
             <!-- Tabs -->
             <div class="mb-6 border-b border-gray-200">
-                <nav class="-mb-px flex space-x-6" aria-label="Tabs">
-                    <a href="#upload" @click.prevent="activeTab = 'upload'"
+                <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+                    <a href="#upload" @click.prevent="activeTab = 'upload'; window.location.hash='upload'"
                        :class="{ 'tab-active': activeTab === 'upload' }"
-                       class="whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
-                        Upload & Detect
+                       class="flex items-center whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                        <i data-lucide="upload" class="inline-block w-4 h-4 mr-2"></i> Upload & Detect
                     </a>
-                    <a href="#result" @click.prevent="activeTab = 'result'"
+                    <a href="#result" @click.prevent="activeTab = 'result'; window.location.hash='result'"
                        :class="{ 'tab-active': activeTab === 'result' }"
-                       class="whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
-                        Last Result
+                       class="flex items-center whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                        <i data-lucide="clipboard-check" class="inline-block w-4 h-4 mr-2"></i> Last Result
                     </a>
                      <a href="{{ url_for('history') }}" @click.prevent="activeTab = 'history'; window.location.href='{{ url_for('history') }}'"
                        :class="{ 'tab-active': activeTab === 'history' }"
-                       class="whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
-                        Blockchain History
+                       class="flex items-center whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                        <i data-lucide="database" class="inline-block w-4 h-4 mr-2"></i> Blockchain History
                     </a>
-                     <a href="#terms" @click.prevent="activeTab = 'terms'"
+                     <a href="#terms" @click.prevent="activeTab = 'terms'; window.location.hash='terms'"
                        :class="{ 'tab-active': activeTab === 'terms' }"
-                       class="whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
-                        Terms & Info
+                       class="flex items-center whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                        <i data-lucide="info" class="inline-block w-4 h-4 mr-2"></i> Terms & Info
                     </a>
                 </nav>
             </div>
@@ -184,102 +199,49 @@
                 <div x-show="activeTab === 'upload'" class="space-y-6">
                     <h2 class="text-2xl font-semibold text-gray-700">1. Upload Media</h2>
                     <p class="text-gray-600">Select an image (jpg, png) or video (mp4, avi, mov) from your device.</p>
-                    
                     <form id="upload-form" action="{{ url_for('upload_media') }}" method="post" enctype="multipart/form-data">
                         <div class="flex flex-col sm:flex-row sm:items-center sm:space-x-4">
-                            <input type="file" name="media" id="media-input" accept="image/*,video/mp4,video/avi,video/quicktime" required 
-                                   class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer">
+                            <input type="file" name="media" id="media-input" accept="image/*,video/mp4,video/avi,video/quicktime" required class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer">
                         </div>
-                    
                         <h3 class="text-xl font-semibold text-gray-700 mt-6 mb-3">2. Analysis Options</h3>
-                        <div class="space-y-3 p-4 border rounded-md bg-gray-50">
-                            <div class="flex items-center">
-                                <input id="use_blockchain" name="use_blockchain" type="checkbox" checked 
-                                       class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
-                                <label for="use_blockchain" class="ml-2 block text-sm font-medium text-gray-700">Enable Blockchain Logging</label>
-                                <span class="ml-2 text-xs text-gray-500">(Saves an immutable record of the result)</span>
-                            </div>
-                            <div class="flex items-center">
-                                <input id="use_xai" name="use_xai" type="checkbox"
-                                       class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
-                                <label for="use_xai" class="ml-2 block text-sm font-medium text-gray-700">Enable Explainable AI (XAI)</label>
-                                <span class="ml-2 text-xs text-gray-500">(Shows *why* an image was flagged, slower)</span>
-                            </div>
+                        <div class="space-y-3 p-4 border rounded-lg bg-gray-50 shadow-inner">
+                            <div class="flex items-center"><input id="use_blockchain" name="use_blockchain" type="checkbox" checked class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"><label for="use_blockchain" class="ml-2 block text-sm font-medium text-gray-700">Enable Blockchain Logging</label><span class="ml-2 text-xs text-gray-500">(Saves an immutable record)</span></div>
+                            <div class="flex items-center"><input id="use_xai" name="use_xai" type="checkbox" class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"><label for="use_xai" class="ml-2 block text-sm font-medium text-gray-700">Enable Explainable AI (XAI)</label><span class="ml-2 text-xs text-gray-500">(Shows *why* for images, slower)</span></div>
                         </div>
-
                         <h3 class="text-xl font-semibold text-gray-700 mt-6 mb-3">3. Upload from Camera (Optional)</h3>
-                        <div class="p-4 border rounded-md bg-gray-50">
-                             <button type="button" @click="toggleCamera" x-text="isCameraOpen ? 'Close Camera' : 'Open Camera'"
-                                    class="py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                                Open Camera
-                             </button>
+                        <div class="p-4 border rounded-lg bg-gray-50 shadow-inner">
+                             <button type="button" @click="toggleCamera" x-text="isCameraOpen ? 'Close Camera' : 'Stop Camera'" class="py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">Open Camera</button>
                              <video id="webcam-feed" autoplay playsinline></video>
-                             <button type="button" id="capture-btn" @click="captureImage"
-                                    class="mt-2 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
-                                Capture & Use Image
-                             </button>
+                             <button type="button" id="capture-btn" @click="captureImage" class="mt-2 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">Capture & Use Image</button>
                              <p id="cam-error" class="text-red-600 text-sm mt-2"></p>
                         </div>
-
-                        <div class="mt-8 text-center">
-                            <button type="submit" class="py-3 px-8 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-150 ease-in-out">
-                                Analyze & Log
-                            </button>
-                        </div>
+                        <div class="mt-8 text-center"><button type="submit" class="py-3 px-10 text-lg bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-150 ease-in-out">Analyze & Log</button></div>
                     </form>
                 </div>
 
                 <!-- === LAST RESULT TAB === -->
                 <div x-show="activeTab === 'result'" class="space-y-4">
                     <h2 class="text-2xl font-semibold text-gray-700">Last Analysis Result</h2>
-                    
-                    <!-- Display general errors (if any passed from session) -->
                     {% if error %}
                        <div class="p-4 border rounded-lg bg-red-100 border-red-400 text-red-700"> <strong>Error:</strong> {{ error }} </div>
                     {% endif %}
-
                     {% if result and result.label != 'N/A' %}
                         <div id="result-content" class="p-6 border rounded-lg bg-gray-50 shadow-inner">
-                             {% if result.existing_record %}
-                                <div class="blockchain-info">
-                                    ℹ️ Result loaded from existing blockchain record.<br>
-                                    Logged on: {{ result.existing_record.log_time_str if result.existing_record.log_time_str else ('Timestamp: ' + result.existing_record.timestamp|string) }}.
-                                </div>
-                             {% else %}
-                                 <h3 class="text-xl font-semibold text-gray-800 mb-3">Analysis Complete ✅</h3>
-                             {% endif %}
-
+                             {% if result.existing_record %}<div class="blockchain-info">ℹ️ Result loaded from existing blockchain record.<br> Logged on: {{ result.existing_record.log_time_str if result.existing_record.log_time_str else ('Timestamp: ' + result.existing_record.timestamp|string) }}.</div>
+                             {% else %} <h3 class="text-xl font-semibold text-gray-800 mb-3">Analysis Complete ✅</h3> {% endif %}
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <p class="text-sm text-gray-500">File Type</p>
-                                    <p class="text-lg font-medium text-gray-900">{{ result.type }}</p>
-                                </div>
-                                <div>
-                                    <p class="text-sm text-gray-500">Prediction</p>
-                                    <p class="text-lg font-bold result-label-{{ result.label|lower }}">{{ result.label }}</p>
-                                </div>
-                                <div class="md:col-span-2">
-                                    <p class="text-sm text-gray-500">Confidence (Score for "Real")</p>
-                                    <p class="text-lg font-medium text-gray-900">{{ "%.4f"|format(result.confidence) }}</p>
-                                </div>
-                                <div class="md:col-span-2">
-                                    <p class="text-sm text-gray-500">Media Hash (SHA-256)</p>
-                                    <code>{{ result.hash }}</code>
-                                </div>
-                                <div class="md:col-span-2">
-                                    <p class="text-sm text-gray-500">Blockchain TX / Status</p>
-                                    <code>{{ result.tx_hash }}</code>
-                                </div>
+                                <div><p class="text-sm text-gray-500">File Type</p><p class="text-lg font-medium text-gray-900">{{ result.type }}</p></div>
+                                <div><p class="text-sm text-gray-500">Prediction</p><p class="text-3xl font-bold result-label-{{ result.label|lower }}">{{ result.label }}</p></div>
+                                <div class="md:col-span-2"><p class="text-sm text-gray-500">Confidence (Score for "Real")</p><p class="text-xl font-medium text-gray-900">{{ "%.4f"|format(result.confidence) }}</p></div>
+                                <div class="md:col-span-2"><p class="text-sm text-gray-500">Media Hash (SHA-256)</p><code>{{ result.hash }}</code></div>
+                                <div class="md:col-span-2"><p class="text-sm text-gray-500">Blockchain TX / Status</p><code>{{ result.tx_hash }}</code></div>
                             </div>
-
-                            <!-- Media Preview & Explainability Grid -->
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                                <!-- Original Media Preview -->
                                 <div>
                                     <h3 class="text-lg font-medium text-gray-800 mb-2">Uploaded Media Preview:</h3>
                                     {% if result.uploaded_filename %}
                                         {% if result.type == 'Image' %}
-                                            <img src="{{ url_for('serve_upload', filename=result.uploaded_filename) }}" alt="Uploaded Image" class="w-full h-auto rounded-lg border border-gray-300">
+                                            <img src="{{ url_for('serve_upload', filename=result.uploaded_filename) }}" alt="Uploaded Image" class="preview-media">
                                         {% elif result.type == 'Video' %}
                                             <video controls class="w-full h-auto rounded-lg border border-gray-300">
                                                 <source src="{{ url_for('serve_upload', filename=result.uploaded_filename) }}" type="video/mp4">
@@ -289,100 +251,115 @@
                                         {% endif %}
                                     {% else %} <p class="text-sm text-gray-500"><em>Preview not available.</em></p> {% endif %}
                                 </div>
-
-                                <!-- Explainability (LIME) -->
                                 <div>
                                      <h3 class="text-lg font-medium text-gray-800 mb-2">Explainability (XAI):</h3>
                                      {% if result.explanation_file %}
-                                        <p class="text-sm text-gray-600 mb-2">Colored regions indicate areas that influenced the model's prediction.</p>
-                                        <img src="{{ url_for('serve_upload', filename=result.explanation_file) }}"
-                                             alt="LIME Explanation Overlay" class="w-full h-auto rounded-lg border border-gray-300">
+                                        <p class="text-sm text-gray-600 mb-2">Hover over the image to see influence values.</p>
+                                        
+                                        <div class="lime-container" id="lime-interactive-container">
+                                            <img src="{{ url_for('serve_upload', filename=result.explanation_file) }}" 
+                                                 alt="LIME Explanation Overlay" 
+                                                 class="preview-media"
+                                                 id="lime-image"
+                                                 @mousemove="handleLimeHover($event)"
+                                                 @mouseleave="hideTooltip()"
+                                                 crossorigin="anonymous">
+                                            <div id="lime-tooltip"></div>
+                                        </div>
+
+                                        {% if result.lime_data %}
+                                            <script>
+                                                window.currentLimeData = {{ result.lime_data | tojson | safe }};
+                                            </script>
+                                        {% endif %}
+
                                      {% elif result.type == 'Video' %}
                                         <p class="text-sm text-gray-500 mt-3"><em>Explainability is currently only available for images.</em></p>
                                      {% elif result.existing_record %}
-                                         <p class="text-sm text-gray-500 mt-3"><em>XAI not requested or generated for this existing record.</em></p>
+                                         <p class="text-sm text-gray-500 mt-3"><em>XAI not generated for this existing record.</em></p>
                                      {% else %}
                                         <p class="text-sm text-gray-500 mt-3"><em>XAI not requested or could not be generated.</em></p>
                                      {% endif %}
                                 </div>
                             </div>
                         </div>
-                    {% elif result and result.label == 'N/A' and not error %}
-                        <div class="p-4 border rounded-lg bg-red-100 border-red-400 text-red-700"> <strong>Error:</strong> Prediction could not be made. Check server logs. </div>
-                    {% else %}
-                        <p class="text-gray-500">No analysis performed yet in this session. Upload a file on the "Upload & Detect" tab.</p>
-                    {% endif %}
+                    {% elif result and result.label == 'N/A' and not error %}<div class="p-4 border rounded-lg bg-red-100 border-red-400 text-red-700"> <strong>Error:</strong> Prediction could not be made. Check server logs. </div>
+                    {% else %}<p class="text-gray-500">No analysis performed yet. Upload a file on the "Upload & Detect" tab.</p>{% endif %}
                 </div>
 
                 <!-- === HISTORY TAB === -->
-                 <div x-show="activeTab === 'history'" class="space-y-4">
+                 <div x-show="activeTab === 'history'" class="space-y-4" id="history-content">
                     <h2 class="text-2xl font-semibold text-gray-700">Blockchain Detection History</h2>
-                    {% if history_error %}
-                         <div class="p-4 border rounded-lg bg-red-100 border-red-400 text-red-700"> <strong>Error:</strong> {{ history_error }} </div>
-                    {% elif history_logs is defined and history_logs %}
-                        <p class="mb-3 text-gray-600">Showing the last {{ history_logs|length }} detections logged on the blockchain (newest first).</p>
-                        <div class="overflow-x-auto border border-gray-200 rounded-lg">
-                            <table class="min-w-full divide-y divide-gray-200">
-                                <thead class="bg-gray-50">
-                                    <tr>
-                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Logged Time</th>
-                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Media Hash (Start)</th>
-                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prediction</th>
-                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Confidence (Real)</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="bg-white divide-y divide-gray-200">
-                                    {% for log in history_logs %}
-                                    <tr>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{{ log.log_time }}</td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><code>{{ log.hash[:16] }}...</code></td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                            <span class="result-label-{{ log.label|lower }}">{{ log.label }}</span>
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{{ "%.4f"|format(log.confidence) }}</td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                    {% else %}
-                        <p class="text-gray-500">No detection history found on the blockchain or unable to fetch.</p>
-                    {% endif %}
+                    {% if history_error %}<div class="p-4 border rounded-lg bg-red-100 border-red-400 text-red-700"> <strong>Error:</strong> {{ history_error }} </div>
+                    {% elif history_logs is defined and history_logs %}<p class="mb-3 text-gray-600">Showing the last {{ history_logs|length }} detections logged on the blockchain (newest first).</p><div class="overflow-x-auto border border-gray-200 rounded-lg"><table class="min-w-full divide-y divide-gray-200"><thead class="bg-gray-50"><tr><th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Logged Time</th><th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Media Hash (Start)</th><th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prediction</th><th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Confidence (Real)</th></tr></thead><tbody class="bg-white divide-y divide-gray-200">{% for log in history_logs %}<tr class="hover:bg-gray-50"> <!-- Added hover effect --> <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{{ log.log_time }}</td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><code>{{ log.hash[:16] }}...</code></td><td class="px-6 py-4 whitespace-nowrap text-sm font-medium"><span class="result-label-{{ log.label|lower }}">{{ log.label }}</span></td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{{ "%.4f"|format(log.confidence) }}</td></tr>{% endfor %}</tbody></table></div>
+                    {% else %}<p class="text-gray-500">No detection history found on the blockchain or unable to fetch.</p>{% endif %}
                 </div>
 
                 <!-- === TERMS & INFO TAB === -->
                 <div x-show="activeTab === 'terms'" class="space-y-4">
                     <h2 class="text-2xl font-semibold text-gray-700">Terms of Use & Information</h2>
-                    <div class="prose max-w-none text-gray-700 space-y-3">
-                        <p>Welcome to the Deepfake Media Detector application. By using this service, you agree to the following terms:</p>
-                        <h4 class="font-semibold pt-2">Data Usage Policy</h4>
-                        <ul class="list-disc list-inside space-y-1 pl-4">
-                            <li>Files uploaded are processed for the sole purpose of deepfake detection analysis.</li>
-                            <li>Uploaded files are stored temporarily on the server during processing and may be deleted shortly after.</li>
-                            <li>If "Enable Blockchain Logging" is selected, the SHA-256 hash of the file, the prediction result (Real/Fake), the confidence score, a timestamp, and (if applicable) the XAI explanation filename are logged immutably on a connected blockchain (currently a local Ganache test network).</li>
-                            <li>No personally identifiable information (other than your username) is stored alongside the detection results on the blockchain.</li>
-                        </ul>
-                        <h4 class="font-semibold pt-2">Accuracy Disclaimer</h4>
-                        <ul class="list-disc list-inside space-y-1 pl-4">
-                            <li>The AI models used for detection are experimental and may produce inaccurate results (false positives or false negatives).</li>
-                            <li>The results provided should be considered indicative and not definitive proof of authenticity or manipulation. Always use critical judgment.</li>
-                        </ul>
-                         <h4 class="font-semibold pt-2">User Responsibility</h4>
-                        <ul class="list-disc list-inside space-y-1 pl-4">
-                            <li>You are responsible for ensuring you have the necessary rights to upload and analyze the media files you submit.</li>
-                            <li>Do not upload illegal, sensitive, or confidential material.</li>
-                        </ul>
-                    </div>
+                    <div class="prose max-w-none text-gray-700 space-y-3"><p>Welcome to the Deepfake Media Detector application. By registering an account and using this service, you agree to the following terms:</p><h4 class="font-semibold pt-2">Data Usage Policy</h4><ul class="list-disc list-inside space-y-1 pl-4"><li>Files uploaded are processed for the sole purpose of deepfake detection analysis.</li><li>Uploaded files are stored temporarily on the server during processing and may be deleted shortly after.</li><li>If "Enable Blockchain Logging" is selected, the SHA-256 hash of the file, the prediction result (Real/Fake), the confidence score, a timestamp, and (if applicable) the XAI explanation filename are logged immutably on a connected blockchain (currently a local Ganache test network).</li><li>No personally identifiable information (other than your username, if associated with the transaction) is stored alongside the detection results on the blockchain.</li></ul><h4 class="font-semibold pt-2">Accuracy Disclaimer</h4><ul class="list-disc list-inside space-y-1 pl-4"><li>The AI models used for detection are experimental and may produce inaccurate results (false positives or false negatives).</li><li>The results provided should be considered indicative and not definitive proof of authenticity or manipulation. Always use critical judgment.</li></ul><h4 class="font-semibold pt-2">User Responsibility</h4><ul class="list-disc list-inside space-y-1 pl-4"><li>You are responsible for ensuring you have the necessary rights to upload and analyze the media files you submit.</li><li>Do not upload illegal, sensitive, or confidential material.</li></ul></div>
                 </div>
             </div>
         {% endif %} <!-- End of logged-in content -->
+    </div> <!-- End App Container -->
 
-    </div> <!-- End Container -->
+    <!-- === Dynamic Features Section === -->
+    <div class="container mx-auto max-w-5xl p-4 md:px-8 mt-12 mb-10" data-aos-id="features-section">
+        <h2 class="text-4xl font-bold text-center text-gray-800 mb-12">Why Verity Lens?</h2>
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            
+            <!-- Feature 1: AI -->
+            <div class="bg-white p-8 rounded-lg shadow-xl" data-aos="fade-up" data-aos-delay="0">
+                <div class="flex items-center justify-center h-16 w-16 rounded-full bg-blue-500 text-white mb-5">
+                    <i data-lucide="brain-circuit" class="w-8 h-8"></i>
+                </div>
+                <h3 class="text-2xl font-semibold mb-3 text-gray-900">Dual AI Analysis</h3>
+                <p class="text-gray-600">Uses a CNN (Xception) for high-speed image analysis and a powerful CNN+LSTM model to detect temporal inconsistencies in videos.</p>
+            </div>
+            
+            <!-- Feature 2: Blockchain -->
+            <div class="bg-white p-8 rounded-lg shadow-xl" data-aos="fade-up" data-aos-delay="150">
+                <div class="flex items-center justify-center h-16 w-16 rounded-full bg-green-500 text-white mb-5">
+                    <i data-lucide="shield-check" class="w-8 h-8"></i>
+                </div>
+                <h3 class="text-2xl font-semibold mb-3 text-gray-900">Immutable Ledger</h3>
+                <p class="text-gray-600">Every new analysis can be logged to a blockchain (Ganache), creating a tamper-proof, verifiable record of the result tied to the file's hash.</p>
+            </div>
+
+            <!-- Feature 3: XAI -->
+            <div class="bg-white p-8 rounded-lg shadow-xl" data-aos="fade-up" data-aos-delay="300">
+                <div class="flex items-center justify-center h-16 w-16 rounded-full bg-purple-500 text-white mb-5">
+                    <i data-lucide="eye" class="w-8 h-8"></i>
+                </div>
+                <h3 class="text-2xl font-semibold mb-3 text-gray-900">Explainable AI (XAI)</h3>
+                <p class="text-gray-600">Don't just get an answer, get an explanation. Our app uses LIME to generate a heatmap overlay, showing *why* an image was flagged as real or fake.</p>
+            </div>
+        </div>
+    </div> <!-- End Features Section -->
+
+    <!-- Footer -->
+    <footer class="text-center py-6 text-gray-500 text-sm">
+        <p>Powered by Flask, TensorFlow, and Web3. &copy; {{ now.year if now else 2025 }} Verity Lens.</p>
+    </footer>
 
     <!-- === JAVASCRIPT === -->
+    
+    <!-- NEW: AOS (Animate On Scroll) JS -->
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
     <script>
-        // Alpine.js is already handling tab switching
-        
+        // Initialize AOS animations
+        AOS.init({
+            duration: 600, // Animation duration
+            once: true,    // Animate only once
+            offset: 50,    // Trigger animation slightly before element enters view
+        });
+        // Initialize Lucide icons
+        lucide.createIcons();
+    </script>
+    
+    <script>
         // Handle form submission with loading overlay
         const form = document.getElementById('upload-form');
         const loadingOverlay = document.getElementById('loading-overlay');
@@ -393,10 +370,11 @@
                 if (fileInput.files.length > 0) {
                     if(loadingOverlay) loadingOverlay.style.display = 'flex'; // Show overlay
                 } else {
-                    // Check if camera capture is active (fileInput might be empty)
-                    // Simple check: if file input is empty, show error
                     const camError = document.getElementById('cam-error');
-                    if (camError) camError.textContent = 'Please select a file or capture an image first.';
+                    if (camError) {
+                        camError.textContent = 'Please select a file or capture an image first.';
+                        camError.style.color = 'red';
+                    }
                     event.preventDefault(); // Stop form submission
                 }
             });
@@ -414,19 +392,19 @@
                 const component = appElement.__x;
                 const hash = window.location.hash.substring(1);
                 
-                // Check if Flask passed specific data to show a tab
-                const initialTab = {{ initial_tab | default(none) | tojson | safe }}; // From Flask render_template
-                const hasResult = {{ result is not none and result.label != 'N/A' | tojson | safe }};
-                const hasError = {{ error is not none or (result and result.label == 'N/A') | tojson | safe }};
+                // Use default(none) to prevent UndefinedError from Jinja
+                const initialTab = {{ initial_tab | default(none) | tojson | safe }}; 
+                const hasResult = {{ (result is not none and result.label != 'N/A') | tojson | safe }};
+                const hasError = {{ (error is not none or (result and result.label == 'N/A')) | tojson | safe }};
 
                 if (initialTab) {
                     component.data.activeTab = initialTab;
-                } else if (hash === 'upload' || hash === 'result' || hash === 'history' || hash ===D 'terms') {
+                } else if (hash && ['upload', 'result', 'history', 'terms'].includes(hash)) {
                      component.data.activeTab = hash;
                 } else if (hasResult || hasError) {
-                     component.data.activeTab = 'result'; // Show result tab if there's a result or error
-                } else {
-                    component.data.activeTab = 'upload'; // Default
+                     component.data.activeTab = 'result'; 
+                } else if (component.data.activeTab !== 'history') {
+                    component.data.activeTab = 'upload'; 
                 }
             }
          });
@@ -436,7 +414,7 @@
             const video = document.getElementById('webcam-feed');
             const captureBtn = document.getElementById('capture-btn');
             const camError = document.getElementById('cam-error');
-            const component = document.querySelector('[x-data]').__x; // Get Alpine component
+            const component = document.querySelector('[x-data]').__x;
 
             if (component.data.isCameraOpen) {
                 // Stop camera
@@ -447,6 +425,7 @@
                 captureBtn.style.display = 'none';
                 camError.textContent = '';
                 component.data.isCameraOpen = false;
+                component.data.webcamStream = null;
             } else {
                 // Start camera
                 if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
@@ -474,32 +453,78 @@
             const fileInput = document.getElementById('media-input');
             const camError = document.getElementById('cam-error');
             
+            if (!video.srcObject) {
+                 camError.textContent = 'Camera is not active.';
+                 return;
+            }
+
             const canvas = document.createElement('canvas');
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
             const context = canvas.getContext('2d');
             context.drawImage(video, 0, 0, canvas.width, canvas.height);
             
-            // Convert canvas to a blob
             canvas.toBlob(function(blob) {
-                // Create a File object
                 const capturedFile = new File([blob], "webcam_capture.jpg", {
                     type: "image/jpeg",
                     lastModified: new Date().getTime()
                 });
 
-                // Use DataTransfer to create a FileList
                 const dataTransfer = new DataTransfer();
                 dataTransfer.items.add(capturedFile);
-                
-                // Set the file input's files property
                 fileInput.files = dataTransfer.files;
 
-                camError.textContent = 'Image captured! You can now submit the form.';
-                toggleCamera(); // Close camera after capture
+                camError.textContent = 'Image captured and selected!';
+                camError.style.color = 'green';
+                toggleCamera(); 
             }, 'image/jpeg');
          }
+         
+         // Re-initialize icons on tab change
+         document.addEventListener('alpine:init', () => {
+             const appElement = document.querySelector('[x-data]');
+             if (!appElement || !appElement.__x) return; 
+             const component = appElement.__x;
+             lucide.createIcons();
+             component.watch('activeTab', (value) => {
+                 component.nextTick(() => {
+                     lucide.createIcons()
+                 });
+             });
+         });
 
+         // LIME Interaction
+        function handleLimeHover(event) {
+            const data = window.currentLimeData;
+            if (!data || !data.segments || !data.weights) return;
+
+            const img = event.target;
+            const rect = img.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+            const scaleX = data.width / rect.width;
+            const scaleY = data.height / rect.height;
+            const gridX = Math.floor(x * scaleX);
+            const gridY = Math.floor(y * scaleY);
+
+            if (gridY >= 0 && gridY < data.height && gridX >= 0 && gridX < data.width) {
+                const segmentId = data.segments[gridY][gridX];
+                const weight = data.weights[String(segmentId)] || 0.0;
+                const tooltip = document.getElementById('lime-tooltip');
+                tooltip.style.display = 'block';
+                tooltip.style.left = (event.pageX + 15) + 'px';
+                tooltip.style.top = (event.pageY + 15) + 'px';
+                
+                const sign = weight > 0 ? '+' : '';
+                const color = weight > 0 ? '#4ade80' : (weight < 0 ? '#f87171' : '#fff');
+                tooltip.innerHTML = `Influence: <span style="color:${color}; font-weight:bold;">${sign}${weight.toFixed(4)}</span>`;
+            }
+        }
+
+        function hideTooltip() {
+            const tooltip = document.getElementById('lime-tooltip');
+            if (tooltip) tooltip.style.display = 'none';
+        }
     </script>
 </body>
 </html>

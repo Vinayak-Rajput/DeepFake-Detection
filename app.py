@@ -1,4 +1,3 @@
-# app.py
 import os
 import hashlib
 import datetime
@@ -43,13 +42,19 @@ try:
 except ImportError as e:
     print(f"[FATAL ERROR] Failed to import modules: {e}")
     print("Please ensure all utility and blockchain files are in place.")
-    # In a real app, you might exit or have this handled more gracefully
     
 # --- Configuration ---
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg'}
 VIDEO_EXTENSIONS = {'mp4', 'avi', 'mov'}
 ALLOWED_EXTENSIONS = IMAGE_EXTENSIONS.union(VIDEO_EXTENSIONS)
+
+# === NEW: Context Processor ===
+@app.context_processor
+def inject_now():
+    """Injects the current datetime 'now' into all templates."""
+    return {'now': datetime.datetime.utcnow()}
+# === END NEW ===
 
 # === User Models ===
 class User(db.Model, UserMixin):
@@ -174,18 +179,17 @@ def history():
         print(f"[ERROR] Could not fetch blockchain history: {e}")
         error_msg = f"Could not fetch blockchain history: {e}"
     
-    # --- FIX: Pass default 'result' and 'error' values ---
-    # The template needs 'result' and 'error' to be defined, even if they are None,
-    # because it renders all tabs (even hidden ones).
+    # Pass result=None and error=None to satisfy the template structure
     return render_template(
         'index.html', 
         history_logs=history_data, 
         history_error=error_msg, 
         initial_tab='history',
-        result=None,  # <-- ADDED THIS LINE
-        error=None    # <-- AND ADDED THIS LINE
+        result=None,
+        error=None
     )
-    # --- END FIX ---
+
+
 @app.route('/upload_media', methods=['POST'])
 @login_required
 def upload_media():
@@ -218,10 +222,13 @@ def upload_media():
             flash(f"Failed to save file: {e}", "error")
             return redirect(url_for('main_page', _anchor='upload'))
 
+        # --- INITIALIZE VARIABLES HERE ---
         label, confidence, media_hash, tx_hash = "N/A", 0.0, "N/A", "N/A"
         error_message, file_type = None, "Unknown"
         existing_record = None
         explanation_file = None
+        lime_data = None # <--- FIX: Initialize lime_data to None
+        # ---------------------------------
 
         try:
             media_hash = get_file_hash(filepath)
@@ -247,9 +254,11 @@ def upload_media():
                 # 2. Run Prediction
                 print("[INFO] No existing record. Proceeding with prediction...")
                 if file_type == "Image":
-                    label, confidence, explanation_file = predict_single_image(filepath, generate_xai=use_xai)
+                    # Unpack 4 values: label, conf, file, data
+                    label, confidence, explanation_file, lime_data = predict_single_image(filepath, generate_xai=use_xai)
                 elif file_type == "Video":
-                    label, confidence, explanation_file = predict_video_sequence(filepath) # XAI not for video
+                    # Unpack 4 values
+                    label, confidence, explanation_file, lime_data = predict_video_sequence(filepath) # XAI not for video
                 
                 print(f"[INFO] Prediction: {label}, Conf: {confidence:.4f}")
                 if explanation_file: print(f"[INFO] LIME explanation generated: {explanation_file}")
@@ -278,7 +287,8 @@ def upload_media():
             "tx_hash": tx_hash,
             "uploaded_filename": filename,
             "existing_record": existing_record,
-            "explanation_file": explanation_file
+            "explanation_file": explanation_file,
+            "lime_data": lime_data # Now safe to use
         }
         session['last_result'] = result_data
         session['last_error'] = error_message # Store error too

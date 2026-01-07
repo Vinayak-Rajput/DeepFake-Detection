@@ -1,132 +1,182 @@
-# **Deep Learning for Media Authentication with Blockchain Logging**
+# Deepfake Media Detector (Full Application)
 
-## **📌 Project Overview**
+This is a full-stack web application for detecting deepfakes in images and videos. It features a secure user authentication system, an AI-powered detection engine (using CNNs and LSTMs), optional LIME (XAI) explainability, and immutable results-logging to an Ethereum blockchain (Ganache).
 
-This project implements a web application for detecting deepfakes and manipulated media (images and videos) using deep learning models. It features a unique integration with a local blockchain (Ganache) to provide an immutable, tamper-proof log of all analysis results.
+## 🚀 Key Features
 
-The system aims to address the growing challenge of verifying digital content authenticity by providing both AI-powered detection and a trustworthy record of the findings.
+  * **User Authentication:** Secure user registration and login system (Flask-Login, Bcrypt, SQLAlchemy).
+  * **Dynamic UI:** A tabbed, single-page-style interface built with Tailwind CSS and Alpine.js.
+      * **Upload Tab:** Allows file upload from disk or directly from a device camera.
+      * **Result Tab:** Displays the most recent analysis.
+      * **History Tab:** Queries and displays all past detection records from the blockchain.
+      * **Terms Tab:** Shows data usage and disclaimer information.
+  * **Dual AI Model:**
+      * **Image (CNN):** Xception model (`xception_regularized_detector.keras`) for static image analysis.
+      * **Video (CNN+LSTM):** Xception+LSTM model (`cnn_lstm_fake_detector_fully_trained.keras`) for temporal video analysis.
+  * **User-Selectable Options:**
+      * **Blockchain Logging:** Users can choose to log analysis results to the blockchain on a per-upload basis.
+      * **Explainable AI (XAI):** Users can request a LIME heatmap for image predictions (generates an overlay).
+  * **Blockchain Querying:** The app first checks the file's hash against the blockchain. If a record exists, it displays the stored result instantly, saving computation.
+  * **Immutable Ledger:** Uses a Solidity smart contract (`DetectionLogger.sol`) to store file hashes, predictions, confidence scores, and XAI filenames.
+  * **Automated Deployment:** Includes a Python script (`deploy_contract.py`) to compile and deploy the smart contract.
+  * **Containerized:** `Dockerfile` provided for building and running the entire application.
+## 📁 Architecture & Data Flow
 
-## **✨ Key Features**
+This diagram shows the complete user flow from uploading a file to receiving a result.
 
-* **Web Interface:** A simple Flask-based web application allowing users to upload media files.  
-* **Dual AI Models:**  
-  * Uses a **Convolutional Neural Network (CNN)** based on Xception (fine-tuned on image frames) for analyzing static images.  
-  * Employs a **CNN \+ LSTM** architecture (Xception features fed into an LSTM) for analyzing video sequences, capturing temporal inconsistencies.  
-* **Blockchain Integration:**  
-  * Connects to a local **Ganache** Ethereum blockchain.  
-  * Deploys a **Solidity** smart contract (DetectionLogger) to store analysis results.  
-  * Logs the **SHA-256 hash** of the media file, the prediction (**Real/Fake**), the model's **confidence score**, and a **timestamp** immutably on the blockchain after each analysis.  
-* **Blockchain Query:** Before running AI prediction on an uploaded file, the application calculates its hash and queries the blockchain to check if an analysis record already exists. If found, it displays the stored result, saving computation time.  
-* **Media Preview:** Displays a preview of the uploaded image within the results. (Video preview is currently disabled in the UI).
+```mermaid
+graph TD
+    A[User Uploads Media] --> B{"app.py: /upload_media"};
+    B --> C["1. Calculate SHA-256 Hash"];
+    C --> D{"2. Blockchain Enabled?"};
+    
+    D -- Yes --> E["3. Query Blockchain(getDetectionByHash)"];
+    E --> F{"Record Found?"};
+    
+    F -- Yes --> G["4a. Load Result from Blockchain"];
+    G --> R["Show Result to User"];
+    
+    F -- No --> H["4b. Run AI Prediction"];
+    D -- No --> H;
+    
+    H --> I{"File Type?"};
+    I -- Image --> J["Predictor: CNN Model (Xception)"];
+    I -- Video --> K["Predictor: CNN+LSTM Model"];
+    
+    J --> L{"XAI Enabled?"};
+    K --> M["Format Result (No XAI)"];
+    
+    L -- Yes --> N["Generate LIME Overlay"];
+    L -- No --> M;
+    N --> M;
+    
+    M --> O{"Blockchain Enabled?"};
+    O -- Yes --> P["Log to Blockchain (logDetection)"];
+    O -- No --> Q["Format Final Result"];
+    
+    P --> Q;
+    Q --> R;
+```
 
-## **🧠 Technology Stack**
+## 💻 Technology Stack
 
-* **Backend:** Python, Flask  
-* **AI/ML:** TensorFlow, Keras, OpenCV (for video processing), Scikit-learn (for data splitting)  
-* **Blockchain:**  
-  * **Smart Contract:** Solidity  
-  * **Local Blockchain:** Ganache  
-  * **Interaction:** Web3.py  
-* **Frontend:** HTML, CSS, JavaScript (basic)  
-* **Compiler:** py-solc-x (for automated deployment)
+  * **Backend:** Python 3.10+, Flask, Flask-SQLAlchemy, Flask-Login, Flask-Bcrypt
+  * **AI / ML:** TensorFlow (Keras), OpenCV, scikit-learn, LIME, scikit-image
+  * **Blockchain:** Solidity, Ganache, Web3.py, py-solc-x
+  * **Frontend:** HTML5, Tailwind CSS, Alpine.js
+  * **Deployment:** Docker, Gunicorn
 
-## **📊 Dataset**
+## 📁 Project Structure
 
-* The primary dataset used for training is **Celeb-DF**.  
-* **Preprocessing:** Videos are processed to extract individual frames (using preprocess.py) or loaded frame-by-frame during training/inference by the data generators/predictors.
+```
+DeepFake-Detection/
+│
+├── .venv/                      # Python virtual environment
+├── blockchain/
+│   ├── DetectionLogger.sol     # Smart contract source code
+│   ├── DetectionLoggerABI.json # Generated by deploy script
+│   ├── contract_config.json    # Blockchain connection details (MUST BE FILLED)
+│   ├── deploy_contract.py      # Script to deploy the contract
+│   └── log_to_blockchain.py    # Script to log/query blockchain
+│
+├── templates/
+│   └── index.html              # Main (and only) HTML file
+│
+├── utils/
+│   └── predictor.py            # AI model loading, prediction, and XAI logic
+│
+├── uploads/                    # Temporary folder for uploads & XAI images
+│
+├── app.py                      # Main Flask application (auth, routes, API)
+├── cnn_lstm_fake_detector_fully_trained.keras  # Trained video model
+├── xception_regularized_detector.keras         # Trained image model
+├── requirements.txt            # Python dependencies
+├── Dockerfile                  # For containerization
+├── .dockerignore               # To optimize Docker build
+├── .gitignore                  # To secure repository
+└── site.db                     # Local user database (auto-generated)
+```
 
-## **⚙️ Project Structure**
+## 🚀 Setup & Installation (Local)
 
-Major Project Phase 2/  
-│  
-├── .venv/                      \# Python virtual environment  
-├── blockchain/  
-│   ├── DetectionLogger.sol     \# Smart contract source  
-│   ├── DetectionLoggerABI.json \# Generated contract ABI  
-│   ├── contract\_config.json    \# Ganache & contract connection details  
-│   └── log\_to\_blockchain.py    \# Script for blockchain interaction  
-├── templates/  
-│   └── index.html              \# Web app frontend  
-├── utils/  
-│   └── predictor.py            \# AI model loading & prediction logic  
-├── uploads/                    \# Temporary storage for uploaded files  
-├── app.py                      \# Main Flask application  
-├── deploy\_contract.py          \# Script to deploy the smart contract  
-├── cnn\_lstm\_fake\_detector\_fully\_trained.keras \# Trained video model  
-├── xception\_regularized\_detector.keras       \# Trained image model  
-├── requirements.txt            \# Python dependencies  
-├── cnn\_lstm\_trainer.py         \# Training script for video model  
-├── cnn\_trainer\_v3\_regularized.py \# Training script for image model  
-└── preprocess.py               \# Initial video-to-frame script
+### Prerequisites
 
-## **🚀 Setup and Running the Project**
+  * Python 3.10+
+  * Git (for version control)
+  * Ganache GUI (running on `http://127.0.0.1:7545`)
+  * (Windows) `solcx` may require **Microsoft C++ Build Tools**.
 
-1. **Prerequisites:**  
-   * Python 3.10+ installed.  
-   * **Ganache:** Install Ganache GUI from [Truffle Suite](https://trufflesuite.com/ganache/).  
-   * **(Optional but Recommended)** Git for cloning.  
-2. **Clone the Repository (if applicable):**  
-   git clone \<your-repo-url\>  
-   cd \<your-repo-name\>
+### Step 1: Clone & Install Dependencies
 
-3. **Set Up Python Environment:**  
-   \# Create virtual environment  
-   python \-m venv .venv  
-   \# Activate (Windows PowerShell)  
-   .\\.venv\\Scripts\\activate  
-   \# Activate (Linux/macOS)  
-   \# source .venv/bin/activate
+1.  Clone this repository or download the files.
+2.  Navigate to the project directory: `cd DeepFake-Detection`
+3.  Create and activate a virtual environment:
+    ```
+    python -m venv .venv
+    .\.venv\Scripts\activate  # Windows
+    # source .venv/bin/activate  # macOS/Linux
+    ```
+4.  Install all required Python packages:
+    ```
+    pip install -r requirements.txt
+    ```
 
-   \# Install dependencies  
-   pip install \-r requirements.txt  
-   \# OR install manually:  
-   \# pip install Flask tensorflow opencv-python web3 py-solc-x numpy matplotlib scikit-learn tqdm Werkzeug
+### Step 2: Configure Blockchain
 
-   *Note: py-solc-x might require C++ build tools.*  
-4. **Start Ganache:**  
-   * Launch the Ganache application. Use "Quickstart" or load a saved workspace.  
-   * Copy the **RPC Server URL** (e.g., http://127.0.0.1:7545).  
-   * Choose an account, copy its **Address** and **Private Key**.  
-5. **Configure Blockchain Connection:**  
-   * Open blockchain/contract\_config.json.  
-   * Paste the Ganache **RPC URL**, **Wallet Address**, and **Private Key** into the respective fields. Leave contract\_address blank for now.
+1.  **Start Ganache:** Open the Ganache GUI.
+2.  **Get Account Details:** Copy a wallet `ADDRESS` and its `PRIVATE KEY` from the Ganache UI.
+3.  **Update Config File:** Open `blockchain/contract_config.json` and paste your details:
+    ```json
+    {
+      "contract_address": "",
+      "network_rpc": "http://127.0.0.1:7545",
+      "wallet_address": "YOUR_GANACHE_WALLET_ADDRESS",
+      "private_key": "YOUR_GANACHE_PRIVATE_KEY"
+    }
+    ```
 
-{  
-  "contract\_address": "",  
-  "network\_rpc": "\[http://127.0.0.1:7545\](http://127.0.0.1:7545)",  
-  "wallet\_address": "YOUR\_GANACHE\_WALLET\_ADDRESS",  
-  "private\_key": "YOUR\_GANACHE\_PRIVATE\_KEY"  
-}
+### Step 3: Deploy Smart Contract
 
-6. **Deploy the Smart Contract:**  
-   * Run the deployment script from your activated terminal:  
-     python deploy\_contract.py
+1.  While in your activated virtual environment, run the deployment script:
+    ```
+    python blockchain/deploy_contract.py
+    ```
+2.  This will compile the contract, deploy it to Ganache, and automatically update `blockchain/contract_config.json` with the new `"contract_address"`.
 
-   * This will compile DetectionLogger.sol, deploy it to Ganache, save the ABI to DetectionLoggerABI.json, and update contract\_config.json with the deployed contract address.  
-7. **Run the Flask Application:**  
-   * Make sure Ganache is still running.  
-   * Run the main app script:  
-     python app.py
+### Step 4: Run the Application
 
-   * The application should start and print URLs (e.g., http://127.0.0.1:5000/).  
-8. **Access the Web App:**  
-   * Open your web browser and navigate to http://127.0.0.1:5000/.  
-   * Upload image or video files to test.
+1.  Run the Flask app. It will also create the `site.db` user database on first run.
+    ```
+    python app.py
+    ```
+2.  Open your browser and go to `http://127.0.0.1:5000`.
+3.  **Register** a new user account and **Login**.
+4.  Start using the application\!
 
-## **📈 Current Status & Limitations**
+## 🐳 Running with Docker
 
-* The end-to-end pipeline (upload \-\> predict \-\> hash \-\> log/query blockchain) is functional.  
-* The web interface provides basic interaction and results display.  
-* **Model Accuracy:** The current AI models (especially the video model) have relatively low accuracy (\~68% on real videos, \~41% on fakes from Celeb-DF) and require further training, fine-tuning, or architectural improvements.  
-* **Explainability:** Grad-CAM integration was attempted but removed due to technical issues; the system currently lacks visual explainability.  
-* **Video Preview:** Disabled in the UI due to browser compatibility/codec issues.  
-* **Scalability:** Designed for local testing with Ganache; deploying to a public testnet/mainnet would require managing real gas fees and security considerations.
+1.  **Deploy Contract:** Run **Steps 1-3** from the local setup first. You need the `contract_config.json` and `DetectionLoggerABI.json` files to be correct *before* building the image.
+2.  **Configure for Container:** Open `blockchain/contract_config.json` and change `"network_rpc"` to point to Docker's host:
+    ```json
+    "network_rpc": "http://host.docker.internal:7545"
+    ```
+3.  **Build the Image:**
+    ```
+    docker build -t deepfake-detector .
+    ```
+4.  **Run the Container:**
+    ```
+    docker run -p 5000:5000 --name deepfake-app deepfake-detector
+    ```
+5.  Access the app in your browser at `http://localhost:5000`.
 
-## **🔮 Future Work**
+## 📈 Model Performance
 
-* Improve model accuracy through fine-tuning, hyperparameter optimization, or different architectures.  
-* Re-integrate or implement a working explainability feature (e.g., Grad-CAM, SHAP).  
-* Enable video previews or thumbnails.  
-* Build a history page to view all records stored on the blockchain.  
-* Containerize the application using Docker.  
-* Clean the dataset by removing identified corrupt video files.
+  * **Image Model (CNN):** Trained on static frames, provides good baseline detection.
+  * **Video Model (CNN+LSTM):** Trained on video sequences, achieved **\~88% validation accuracy** on a subset of the Celeb-DF dataset. However, further validation showed lower generalization (\~68% on real videos, \~41% on fakes), indicating a need for further fine-tuning or training on a more diverse dataset.
+
+## 🔮 Future Improvements
+
+  * **Model Fine-Tuning:** Unfreeze the top layers of the Xception base and re-train the models with a very low learning rate to improve accuracy.
+  * **Fix Video Preview:** The HTML5 `<video>` tag preview currently does not render all video codecs properly (e.g., some `.mp4` files from the dataset). This could be fixed by re-encoding videos on upload or using a more robust player.
+  * **Batch Processing:** Allow users to upload a batch of files for analysis.
